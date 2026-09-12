@@ -1,0 +1,456 @@
+--!strict
+
+--==================================================
+-- ADMIN ACCESS
+--==================================================
+
+local ALLOWED_USER = "Твой_Никнейм" -- ⚠️ УКАЖИ СВОЙ НИКНЕЙМ
+
+--==================================================
+-- SERVICES
+--==================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local localPlayer = Players.LocalPlayer :: Player
+local playerGui = localPlayer:WaitForChild("PlayerGui") :: PlayerGui
+local camera = workspace.CurrentCamera :: Camera
+
+if localPlayer.Name ~= ALLOWED_USER then
+	return
+end
+
+--==================================================
+-- CONFIG
+--==================================================
+
+local CONFIG = {
+	MAIN_SIZE = UDim2.fromOffset(300, 290),
+	MAIN_POSITION = UDim2.fromScale(0.5, 0.45),
+
+	-- Visual Style
+	BG_COLOR = Color3.fromRGB(15, 17, 23),
+	CARD_BG = Color3.fromRGB(24, 27, 36),
+	ACCENT_COLOR = Color3.fromRGB(99, 102, 241), -- Soft Violet/Blue
+	TEXT_PRIMARY = Color3.fromRGB(240, 243, 250),
+	TEXT_SECONDARY = Color3.fromRGB(130, 140, 160),
+
+	ON_COLOR = Color3.fromRGB(34, 197, 94),
+	OFF_COLOR = Color3.fromRGB(239, 68, 68),
+
+	ESP_COLOR = Color3.fromRGB(255, 75, 75),
+	LINE_THICKNESS = 1.5,
+
+	AIM_SMOOTHNESS = 0.25,
+	AIM_MAX_DISTANCE = 2000,
+}
+
+--==================================================
+-- STATE
+--==================================================
+
+local state = {
+	tracersEnabled = false,
+	boxesEnabled = false,
+	aimEnabled = false,
+}
+
+--==================================================
+-- GUI CREATION (MODERN UI)
+--==================================================
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SpectatorAdminSuite"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 100
+screenGui.Parent = playerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = CONFIG.MAIN_SIZE
+mainFrame.Position = CONFIG.MAIN_POSITION
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = CONFIG.BG_COLOR
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.BorderSizePixel = 0
+mainFrame.ZIndex = 10
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 16)
+corner.Parent = mainFrame
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 1.5
+stroke.Color = CONFIG.ACCENT_COLOR
+stroke.Transparency = 0.5
+stroke.Parent = mainFrame
+
+-- Title Header
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 50)
+header.BackgroundTransparency = 1
+header.Parent = mainFrame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(0.7, 0, 0.6, 0)
+title.Position = UDim2.new(0.06, 0, 0.15, 0)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.Text = "SPECTATOR V2"
+title.TextColor3 = CONFIG.TEXT_PRIMARY
+title.TextSize = 16
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = header
+
+local subtitle = Instance.new("TextLabel")
+subtitle.Size = UDim2.new(0.7, 0, 0.3, 0)
+subtitle.Position = UDim2.new(0.06, 0, 0.65, 0)
+subtitle.BackgroundTransparency = 1
+subtitle.Font = Enum.Font.Gotham
+subtitle.Text = "Admin Overview System"
+subtitle.TextColor3 = CONFIG.TEXT_SECONDARY
+subtitle.TextSize = 10
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.Parent = header
+
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.fromOffset(28, 28)
+minimizeBtn.Position = UDim2.new(1, -36, 0, 11)
+minimizeBtn.BackgroundColor3 = CONFIG.CARD_BG
+minimizeBtn.BorderSizePixel = 0
+minimizeBtn.Text = "—"
+minimizeBtn.TextColor3 = CONFIG.TEXT_PRIMARY
+minimizeBtn.TextSize = 12
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.Parent = header
+
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0, 8)
+minCorner.Parent = minimizeBtn
+
+local openBtn = Instance.new("TextButton")
+openBtn.Size = UDim2.fromOffset(45, 45)
+openBtn.Position = UDim2.new(0, 15, 0.5, -22)
+openBtn.BackgroundColor3 = CONFIG.BG_COLOR
+openBtn.BorderSizePixel = 0
+openBtn.Text = "👁️"
+openBtn.TextSize = 20
+openBtn.Visible = false
+openBtn.ZIndex = 20
+openBtn.Parent = screenGui
+
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0, 12)
+openCorner.Parent = openBtn
+
+local openStroke = Instance.new("UIStroke")
+openStroke.Thickness = 1.5
+openStroke.Color = CONFIG.ACCENT_COLOR
+openStroke.Parent = openBtn
+
+-- Container for buttons
+local buttonList = Instance.new("Frame")
+buttonList.Size = UDim2.new(0.88, 0, 0.7, 0)
+buttonList.Position = UDim2.new(0.06, 0, 0.22, 0)
+buttonList.BackgroundTransparency = 1
+buttonList.Parent = mainFrame
+
+local layout = Instance.new("UIListLayout")
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, 8)
+layout.Parent = buttonList
+
+-- Function to create modern toggle buttons
+local function createToggle(text: string, order: number): (Frame, () -> ())
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 42)
+	card.BackgroundColor3 = CONFIG.CARD_BG
+	card.BorderSizePixel = 0
+	card.LayoutOrder = order
+	card.Parent = buttonList
+
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, 10)
+	c.Parent = card
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(0.65, 0, 1, 0)
+	lbl.Position = UDim2.new(0.05, 0, 0, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Font = Enum.Font.GothamBold
+	lbl.Text = text
+	lbl.TextColor3 = CONFIG.TEXT_PRIMARY
+	lbl.TextSize = 12
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Parent = card
+
+	local indicator = Instance.new("Frame")
+	indicator.Size = UDim2.fromOffset(36, 20)
+	indicator.Position = UDim2.new(1, -44, 0.5, -10)
+	indicator.BackgroundColor3 = CONFIG.OFF_COLOR
+	indicator.BorderSizePixel = 0
+	indicator.Parent = card
+
+	local indCorner = Instance.new("UICorner")
+	indCorner.CornerRadius = UDim.new(1, 0)
+	indCorner.Parent = indicator
+
+	local dot = Instance.new("Frame")
+	dot.Size = UDim2.fromOffset(14, 14)
+	dot.Position = UDim2.new(0, 3, 0.5, -7)
+	dot.BackgroundColor3 = CONFIG.TEXT_PRIMARY
+	dot.BorderSizePixel = 0
+	dot.Parent = indicator
+
+	local dotCorner = Instance.new("UICorner")
+	dotCorner.CornerRadius = UDim.new(1, 0)
+	dotCorner.Parent = dot
+
+	local clickBtn = Instance.new("TextButton")
+	clickBtn.Size = UDim2.fromScale(1, 1)
+	clickBtn.BackgroundTransparency = 1
+	clickBtn.Text = ""
+	clickBtn.Parent = card
+
+	local active = false
+	local function updateState()
+		if active then
+			indicator.BackgroundColor3 = CONFIG.ON_COLOR
+			dot.Position = UDim2.new(1, -17, 0.5, -7)
+		else
+			indicator.BackgroundColor3 = CONFIG.OFF_COLOR
+			dot.Position = UDim2.new(0, 3, 0.5, -7)
+		end
+	end
+
+	clickBtn.Activated:Connect(function()
+		active = not active
+		updateState()
+	end)
+
+	return card, function() return active end
+end
+
+local tracerCard, getTracerState = createToggle("TRACERS (LINES)", 1)
+local boxCard, getBoxState = createToggle("ESP BOXES", 2)
+local aimCard, getAimState = createToggle("AIM ASSIST", 3)
+
+-- Dragging System
+local dragging, dragStart, startPos, dragInput
+mainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = mainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then dragging = false end
+		end)
+	end
+end)
+mainFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - dragStart
+		mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+minimizeBtn.Activated:Connect(function()
+	mainFrame.Visible = false
+	openBtn.Visible = true
+end)
+openBtn.Activated:Connect(function()
+	mainFrame.Visible = true
+	openBtn.Visible = false
+end)
+
+--==================================================
+-- ESP & TRACER CONTAINERS & POOL
+--==================================================
+
+local espContainer = Instance.new("Frame")
+espContainer.Name = "ESPContainer"
+espContainer.BackgroundTransparency = 1
+espContainer.Size = UDim2.fromScale(1, 1)
+espContainer.ZIndex = 1
+espContainer.Parent = screenGui
+
+type PlayerElements = {
+	Tracer: Frame,
+	Box: Frame,
+}
+
+local playerElements: { [Player]: PlayerElements } = {}
+
+local function createPlayerElements(player: Player): PlayerElements
+	-- Tracer Line
+	local line = Instance.new("Frame")
+	line.Name = "Tracer_" .. player.UserId
+	line.AnchorPoint = Vector2.new(0, 0.5) -- Точный поворот из начальной точки
+	line.BackgroundColor3 = CONFIG.ESP_COLOR
+	line.BorderSizePixel = 0
+	line.Visible = false
+	line.Parent = espContainer
+
+	-- Box Frame
+	local box = Instance.new("Frame")
+	box.Name = "Box_" .. player.UserId
+	box.BackgroundTransparency = 1
+	box.BorderSizePixel = 0
+	box.Visible = false
+	box.Parent = espContainer
+
+	local boxStroke = Instance.new("UIStroke")
+	boxStroke.Thickness = 1.5
+	boxStroke.Color = CONFIG.ESP_COLOR
+	boxStroke.Parent = box
+
+	local elements = { Tracer = line, Box = box }
+	playerElements[player] = elements
+	return elements
+end
+
+local function getElements(player: Player): PlayerElements
+	return playerElements[player] or createPlayerElements(player)
+end
+
+local function hideElements(player: Player)
+	local elems = playerElements[player]
+	if elems then
+		elems.Tracer.Visible = false
+		elems.Box.Visible = false
+	end
+end
+
+local function removeElements(player: Player)
+	local elems = playerElements[player]
+	if elems then
+		elems.Tracer:Destroy()
+		elems.Box:Destroy()
+		playerElements[player] = nil
+	end
+end
+
+--==================================================
+-- CORE LOGIC
+--==================================================
+
+local function getTargetHead(cam: Camera): BasePart?
+	local char = localPlayer.Character
+	if not char then return nil end
+	local root = char:FindFirstChild("HumanoidRootPart") :: BasePart
+	if not root then return nil end
+
+	local nearest: BasePart? = nil
+	local minDst = CONFIG.AIM_MAX_DISTANCE
+
+	for _, p in Players:GetPlayers() do
+		if p ~= localPlayer and p.Character then
+			local hum = p.Character:FindFirstChildOfClass("Humanoid")
+			local head = p.Character:FindFirstChild("Head") :: BasePart
+			if hum and hum.Health > 0 and head then
+				local dst = (head.Position - root.Position).Magnitude
+				if dst < minDst then
+					minDst = dst
+					nearest = head
+				end
+			end
+		end
+	end
+	return nearest
+end
+
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+	camera = workspace.CurrentCamera :: Camera
+end)
+
+Players.PlayerRemoving:Connect(removeElements)
+
+-- RENDER LOOP
+RunService.RenderStepped:Connect(function()
+	if not camera then return end
+
+	local showTracers = getTracerState()
+	local showBoxes = getBoxState()
+	local aimOn = getAimState()
+
+	-- 1. AIM BOT LOGIC
+	if aimOn then
+		local targetHead = getTargetHead(camera)
+		if targetHead then
+			local currentCF = camera.CFrame
+			local targetCF = CFrame.lookAt(currentCF.Position, targetHead.Position)
+			camera.CFrame = currentCF:Lerp(targetCF, CONFIG.AIM_SMOOTHNESS)
+		end
+	end
+
+	-- 2. ESP & TRACERS LOGIC
+	local viewport = camera.ViewportSize
+	if viewport.X <= 0 or viewport.Y <= 0 then return end
+	local screenCenter = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
+
+	for _, player in Players:GetPlayers() do
+		if player == localPlayer then continue end
+
+		local elems = getElements(player)
+		local char = player.Character
+
+		if not char or not showTracers and not showBoxes then
+			hideElements(player)
+			continue
+		end
+
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		local root = char:FindFirstChild("HumanoidRootPart") :: BasePart
+
+		if not hum or hum.Health <= 0 or not root then
+			hideElements(player)
+			continue
+		end
+
+		-- Получение 2D координат
+		local rootScreenPos, onScreen = camera:WorldToScreenPoint(root.Position)
+
+		if not onScreen or rootScreenPos.Z <= 0 then
+			hideElements(player)
+			continue
+		end
+
+		local targetPos2D = Vector2.new(rootScreenPos.X, rootScreenPos.Y)
+
+		-- Отрисовка линий (Tracers)
+		if showTracers then
+			local dir = targetPos2D - screenCenter
+			local dist = dir.Magnitude
+
+			elems.Tracer.Position = UDim2.fromOffset(screenCenter.X, screenCenter.Y)
+			elems.Tracer.Size = UDim2.fromOffset(dist, CONFIG.LINE_THICKNESS)
+			elems.Tracer.Rotation = math.deg(math.atan2(dir.Y, dir.X))
+			elems.Tracer.Visible = true
+		else
+			elems.Tracer.Visible = false
+		end
+
+		-- Отрисовка квадратов (ESP Boxes)
+		if showBoxes then
+			-- Вычисление размеров Bounding Box в зависимости от дистанции (Z)
+			local factor = 1000 / rootScreenPos.Z
+			local boxWidth = math.clamp(35 * factor, 15, 300)
+			local boxHeight = math.clamp(50 * factor, 22, 400)
+
+			elems.Box.Size = UDim2.fromOffset(boxWidth, boxHeight)
+			elems.Box.Position = UDim2.fromOffset(targetPos2D.X - boxWidth / 2, targetPos2D.Y - boxHeight / 2)
+			elems.Box.Visible = true
+		else
+			elems.Box.Visible = false
+		end
+	end
+end)
