@@ -23,24 +23,24 @@ if localPlayer.Name ~= ALLOWED_USER then
 end
 
 --==================================================
--- CONFIG
+-- CONFIG & DARK-RED THEME
 --==================================================
 
 local CONFIG = {
-	MAIN_SIZE = UDim2.fromOffset(300, 290),
+	MAIN_SIZE = UDim2.fromOffset(310, 230),
 	MAIN_POSITION = UDim2.fromScale(0.5, 0.45),
 
-	-- Visual Style
-	BG_COLOR = Color3.fromRGB(15, 17, 23),
-	CARD_BG = Color3.fromRGB(24, 27, 36),
-	ACCENT_COLOR = Color3.fromRGB(99, 102, 241), -- Soft Violet/Blue
-	TEXT_PRIMARY = Color3.fromRGB(240, 243, 250),
-	TEXT_SECONDARY = Color3.fromRGB(130, 140, 160),
+	-- Dark Red Visual Style
+	BG_COLOR = Color3.fromRGB(18, 10, 12),       -- Очень тёмный красно-серый фон (ZIndex 1)
+	CARD_BG = Color3.fromRGB(32, 18, 22),        -- Непрозрачный тёмно-красный фон кнопок (ZIndex 2)
+	ACCENT_COLOR = Color3.fromRGB(220, 38, 38),   -- Ярко-красный контур/акцент
+	TEXT_PRIMARY = Color3.fromRGB(255, 240, 240),
+	TEXT_SECONDARY = Color3.fromRGB(180, 130, 135),
 
-	ON_COLOR = Color3.fromRGB(34, 197, 94),
-	OFF_COLOR = Color3.fromRGB(239, 68, 68),
+	ON_COLOR = Color3.fromRGB(34, 197, 94),      -- Зеленый при включении
+	OFF_COLOR = Color3.fromRGB(150, 40, 40),     -- Тёмно-красный при выключении
 
-	ESP_COLOR = Color3.fromRGB(255, 75, 75),
+	ESP_COLOR = Color3.fromRGB(255, 50, 50),
 	LINE_THICKNESS = 1.5,
 
 	AIM_SMOOTHNESS = 0.25,
@@ -52,13 +52,12 @@ local CONFIG = {
 --==================================================
 
 local state = {
-	tracersEnabled = false,
-	boxesEnabled = false,
+	espEnabled = false,
 	aimEnabled = false,
 }
 
 --==================================================
--- GUI CREATION (MODERN UI)
+-- GUI CREATION (STRICT Z-INDEX LAYERING)
 --==================================================
 
 local screenGui = Instance.new("ScreenGui")
@@ -68,31 +67,33 @@ screenGui.IgnoreGuiInset = true
 screenGui.DisplayOrder = 100
 screenGui.Parent = playerGui
 
+-- MAIN BACKGROUND FRAME (Z-INDEX 1)
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = CONFIG.MAIN_SIZE
 mainFrame.Position = CONFIG.MAIN_POSITION
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 mainFrame.BackgroundColor3 = CONFIG.BG_COLOR
-mainFrame.BackgroundTransparency = 0.1
+mainFrame.BackgroundTransparency = 0.15 -- Полупрозрачный задний тёмно-красный квадрат
 mainFrame.BorderSizePixel = 0
-mainFrame.ZIndex = 10
+mainFrame.ZIndex = 1
 mainFrame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 16)
+corner.CornerRadius = UDim.new(0, 14)
 corner.Parent = mainFrame
 
 local stroke = Instance.new("UIStroke")
-stroke.Thickness = 1.5
+stroke.Thickness = 2
 stroke.Color = CONFIG.ACCENT_COLOR
-stroke.Transparency = 0.5
+stroke.Transparency = 0.3
 stroke.Parent = mainFrame
 
--- Title Header
+-- TITLE HEADER (Z-INDEX 2)
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 50)
 header.BackgroundTransparency = 1
+header.ZIndex = 2
 header.Parent = mainFrame
 
 local title = Instance.new("TextLabel")
@@ -104,6 +105,7 @@ title.Text = "SPECTATOR V2"
 title.TextColor3 = CONFIG.TEXT_PRIMARY
 title.TextSize = 16
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 2
 title.Parent = header
 
 local subtitle = Instance.new("TextLabel")
@@ -111,10 +113,11 @@ subtitle.Size = UDim2.new(0.7, 0, 0.3, 0)
 subtitle.Position = UDim2.new(0.06, 0, 0.65, 0)
 subtitle.BackgroundTransparency = 1
 subtitle.Font = Enum.Font.Gotham
-subtitle.Text = "Admin Overview System"
+subtitle.Text = "Admin Overview Panel"
 subtitle.TextColor3 = CONFIG.TEXT_SECONDARY
 subtitle.TextSize = 10
 subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.ZIndex = 2
 subtitle.Parent = header
 
 local minimizeBtn = Instance.new("TextButton")
@@ -126,6 +129,7 @@ minimizeBtn.Text = "—"
 minimizeBtn.TextColor3 = CONFIG.TEXT_PRIMARY
 minimizeBtn.TextSize = 12
 minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.ZIndex = 2
 minimizeBtn.Parent = header
 
 local minCorner = Instance.new("UICorner")
@@ -152,30 +156,39 @@ openStroke.Thickness = 1.5
 openStroke.Color = CONFIG.ACCENT_COLOR
 openStroke.Parent = openBtn
 
--- Container for buttons
+-- BUTTON LIST CONTAINER (Z-INDEX 2)
 local buttonList = Instance.new("Frame")
-buttonList.Size = UDim2.new(0.88, 0, 0.7, 0)
-buttonList.Position = UDim2.new(0.06, 0, 0.22, 0)
+buttonList.Size = UDim2.new(0.88, 0, 0.65, 0)
+buttonList.Position = UDim2.new(0.06, 0, 0.26, 0)
 buttonList.BackgroundTransparency = 1
+buttonList.ZIndex = 2
 buttonList.Parent = mainFrame
 
 local layout = Instance.new("UIListLayout")
 layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 8)
+layout.Padding = UDim.new(0, 10)
 layout.Parent = buttonList
 
--- Function to create modern toggle buttons
+-- TOGGLE CREATION WITH FOREGROUND Z-INDEX
 local function createToggle(text: string, order: number): (Frame, () -> ())
 	local card = Instance.new("Frame")
-	card.Size = UDim2.new(1, 0, 0, 42)
+	card.Size = UDim2.new(1, 0, 0, 46)
 	card.BackgroundColor3 = CONFIG.CARD_BG
+	card.BackgroundTransparency = 0 -- Четкие плашки кнопок ПОВЕРХ фона
 	card.BorderSizePixel = 0
 	card.LayoutOrder = order
+	card.ZIndex = 2
 	card.Parent = buttonList
 
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, 10)
 	c.Parent = card
+
+	local cardStroke = Instance.new("UIStroke")
+	cardStroke.Thickness = 1
+	cardStroke.Color = CONFIG.ACCENT_COLOR
+	cardStroke.Transparency = 0.7
+	cardStroke.Parent = card
 
 	local lbl = Instance.new("TextLabel")
 	lbl.Size = UDim2.new(0.65, 0, 1, 0)
@@ -184,8 +197,9 @@ local function createToggle(text: string, order: number): (Frame, () -> ())
 	lbl.Font = Enum.Font.GothamBold
 	lbl.Text = text
 	lbl.TextColor3 = CONFIG.TEXT_PRIMARY
-	lbl.TextSize = 12
+	lbl.TextSize = 13
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.ZIndex = 3
 	lbl.Parent = card
 
 	local indicator = Instance.new("Frame")
@@ -193,6 +207,7 @@ local function createToggle(text: string, order: number): (Frame, () -> ())
 	indicator.Position = UDim2.new(1, -44, 0.5, -10)
 	indicator.BackgroundColor3 = CONFIG.OFF_COLOR
 	indicator.BorderSizePixel = 0
+	indicator.ZIndex = 3
 	indicator.Parent = card
 
 	local indCorner = Instance.new("UICorner")
@@ -204,6 +219,7 @@ local function createToggle(text: string, order: number): (Frame, () -> ())
 	dot.Position = UDim2.new(0, 3, 0.5, -7)
 	dot.BackgroundColor3 = CONFIG.TEXT_PRIMARY
 	dot.BorderSizePixel = 0
+	dot.ZIndex = 4
 	dot.Parent = indicator
 
 	local dotCorner = Instance.new("UICorner")
@@ -214,6 +230,7 @@ local function createToggle(text: string, order: number): (Frame, () -> ())
 	clickBtn.Size = UDim2.fromScale(1, 1)
 	clickBtn.BackgroundTransparency = 1
 	clickBtn.Text = ""
+	clickBtn.ZIndex = 5 -- Кликовый слой поверх всего
 	clickBtn.Parent = card
 
 	local active = false
@@ -235,11 +252,10 @@ local function createToggle(text: string, order: number): (Frame, () -> ())
 	return card, function() return active end
 end
 
-local tracerCard, getTracerState = createToggle("TRACERS (LINES)", 1)
-local boxCard, getBoxState = createToggle("ESP BOXES", 2)
-local aimCard, getAimState = createToggle("AIM ASSIST", 3)
+local espCard, getEspState = createToggle("ESP SYSTEM", 1)
+local aimCard, getAimState = createToggle("AIM ASSIST", 2)
 
--- Dragging System
+-- DRAGGING SYSTEM
 local dragging, dragStart, startPos, dragInput
 mainFrame.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -273,7 +289,7 @@ openBtn.Activated:Connect(function()
 end)
 
 --==================================================
--- ESP & TRACER CONTAINERS & POOL
+-- ESP CONTAINERS & POOL
 --==================================================
 
 local espContainer = Instance.new("Frame")
@@ -291,16 +307,14 @@ type PlayerElements = {
 local playerElements: { [Player]: PlayerElements } = {}
 
 local function createPlayerElements(player: Player): PlayerElements
-	-- Tracer Line
 	local line = Instance.new("Frame")
 	line.Name = "Tracer_" .. player.UserId
-	line.AnchorPoint = Vector2.new(0, 0.5) -- Точный поворот из начальной точки
+	line.AnchorPoint = Vector2.new(0, 0.5)
 	line.BackgroundColor3 = CONFIG.ESP_COLOR
 	line.BorderSizePixel = 0
 	line.Visible = false
 	line.Parent = espContainer
 
-	-- Box Frame
 	local box = Instance.new("Frame")
 	box.Name = "Box_" .. player.UserId
 	box.BackgroundTransparency = 1
@@ -378,8 +392,7 @@ Players.PlayerRemoving:Connect(removeElements)
 RunService.RenderStepped:Connect(function()
 	if not camera then return end
 
-	local showTracers = getTracerState()
-	local showBoxes = getBoxState()
+	local showEsp = getEspState()
 	local aimOn = getAimState()
 
 	-- 1. AIM BOT LOGIC
@@ -392,7 +405,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 
-	-- 2. ESP & TRACERS LOGIC
+	-- 2. COMBINED ESP LOGIC
 	local viewport = camera.ViewportSize
 	if viewport.X <= 0 or viewport.Y <= 0 then return end
 	local screenCenter = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
@@ -403,7 +416,7 @@ RunService.RenderStepped:Connect(function()
 		local elems = getElements(player)
 		local char = player.Character
 
-		if not char or not showTracers and not showBoxes then
+		if not char or not showEsp then
 			hideElements(player)
 			continue
 		end
@@ -416,41 +429,35 @@ RunService.RenderStepped:Connect(function()
 			continue
 		end
 
-		-- Получение 2D координат
-		local rootScreenPos, onScreen = camera:WorldToScreenPoint(root.Position)
+		local rootPos = root.Position
+		local topWorld = rootPos + Vector3.new(0, 3.2, 0)
+		local bottomWorld = rootPos - Vector3.new(0, 3.2, 0)
 
-		if not onScreen or rootScreenPos.Z <= 0 then
+		local topScreen, topOnScreen = camera:WorldToScreenPoint(topWorld)
+		local bottomScreen, bottomOnScreen = camera:WorldToScreenPoint(bottomWorld)
+
+		if not topOnScreen or not bottomOnScreen or topScreen.Z <= 0 then
 			hideElements(player)
 			continue
 		end
 
-		local targetPos2D = Vector2.new(rootScreenPos.X, rootScreenPos.Y)
+		local boxHeight = math.abs(bottomScreen.Y - topScreen.Y)
+		local boxWidth = boxHeight * 0.65
 
-		-- Отрисовка линий (Tracers)
-		if showTracers then
-			local dir = targetPos2D - screenCenter
-			local dist = dir.Magnitude
+		local boxCenter2D = Vector2.new(topScreen.X, topScreen.Y + (boxHeight / 2))
 
-			elems.Tracer.Position = UDim2.fromOffset(screenCenter.X, screenCenter.Y)
-			elems.Tracer.Size = UDim2.fromOffset(dist, CONFIG.LINE_THICKNESS)
-			elems.Tracer.Rotation = math.deg(math.atan2(dir.Y, dir.X))
-			elems.Tracer.Visible = true
-		else
-			elems.Tracer.Visible = false
-		end
+		-- 1. Отрисовка Box
+		elems.Box.Size = UDim2.fromOffset(boxWidth, boxHeight)
+		elems.Box.Position = UDim2.fromOffset(boxCenter2D.X - (boxWidth / 2), topScreen.Y)
+		elems.Box.Visible = true
 
-		-- Отрисовка квадратов (ESP Boxes)
-		if showBoxes then
-			-- Вычисление размеров Bounding Box в зависимости от дистанции (Z)
-			local factor = 1000 / rootScreenPos.Z
-			local boxWidth = math.clamp(35 * factor, 15, 300)
-			local boxHeight = math.clamp(50 * factor, 22, 400)
+		-- 2. Отрисовка Tracer
+		local dir = boxCenter2D - screenCenter
+		local dist = dir.Magnitude
 
-			elems.Box.Size = UDim2.fromOffset(boxWidth, boxHeight)
-			elems.Box.Position = UDim2.fromOffset(targetPos2D.X - boxWidth / 2, targetPos2D.Y - boxHeight / 2)
-			elems.Box.Visible = true
-		else
-			elems.Box.Visible = false
-		end
+		elems.Tracer.Position = UDim2.fromOffset(screenCenter.X, screenCenter.Y)
+		elems.Tracer.Size = UDim2.fromOffset(dist, CONFIG.LINE_THICKNESS)
+		elems.Tracer.Rotation = math.deg(math.atan2(dir.Y, dir.X))
+		elems.Tracer.Visible = true
 	end
 end)
