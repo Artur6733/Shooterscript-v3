@@ -30,15 +30,15 @@ local CONFIG = {
 	MAIN_SIZE = UDim2.fromOffset(310, 230),
 	MAIN_POSITION = UDim2.fromScale(0.5, 0.45),
 
-	-- Dark Red Visual Style
-	BG_COLOR = Color3.fromRGB(18, 10, 12),       -- Очень тёмный красно-серый фон (ZIndex 1)
-	CARD_BG = Color3.fromRGB(32, 18, 22),        -- Непрозрачный тёмно-красный фон кнопок (ZIndex 2)
-	ACCENT_COLOR = Color3.fromRGB(220, 38, 38),   -- Ярко-красный контур/акцент
+	-- Dark Red Style
+	BG_COLOR = Color3.fromRGB(18, 10, 12),
+	CARD_BG = Color3.fromRGB(32, 18, 22),
+	ACCENT_COLOR = Color3.fromRGB(220, 38, 38),
 	TEXT_PRIMARY = Color3.fromRGB(255, 240, 240),
 	TEXT_SECONDARY = Color3.fromRGB(180, 130, 135),
 
-	ON_COLOR = Color3.fromRGB(34, 197, 94),      -- Зеленый при включении
-	OFF_COLOR = Color3.fromRGB(150, 40, 40),     -- Тёмно-красный при выключении
+	ON_COLOR = Color3.fromRGB(34, 197, 94),
+	OFF_COLOR = Color3.fromRGB(150, 40, 40),
 
 	ESP_COLOR = Color3.fromRGB(255, 50, 50),
 	LINE_THICKNESS = 1.5,
@@ -67,14 +67,13 @@ screenGui.IgnoreGuiInset = true
 screenGui.DisplayOrder = 100
 screenGui.Parent = playerGui
 
--- MAIN BACKGROUND FRAME (Z-INDEX 1)
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = CONFIG.MAIN_SIZE
 mainFrame.Position = CONFIG.MAIN_POSITION
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 mainFrame.BackgroundColor3 = CONFIG.BG_COLOR
-mainFrame.BackgroundTransparency = 0.15 -- Полупрозрачный задний тёмно-красный квадрат
+mainFrame.BackgroundTransparency = 0.15
 mainFrame.BorderSizePixel = 0
 mainFrame.ZIndex = 1
 mainFrame.Parent = screenGui
@@ -89,7 +88,7 @@ stroke.Color = CONFIG.ACCENT_COLOR
 stroke.Transparency = 0.3
 stroke.Parent = mainFrame
 
--- TITLE HEADER (Z-INDEX 2)
+-- TITLE HEADER
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 50)
 header.BackgroundTransparency = 1
@@ -156,7 +155,7 @@ openStroke.Thickness = 1.5
 openStroke.Color = CONFIG.ACCENT_COLOR
 openStroke.Parent = openBtn
 
--- BUTTON LIST CONTAINER (Z-INDEX 2)
+-- BUTTON CONTAINER
 local buttonList = Instance.new("Frame")
 buttonList.Size = UDim2.new(0.88, 0, 0.65, 0)
 buttonList.Position = UDim2.new(0.06, 0, 0.26, 0)
@@ -169,12 +168,11 @@ layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Padding = UDim.new(0, 10)
 layout.Parent = buttonList
 
--- TOGGLE CREATION WITH FOREGROUND Z-INDEX
 local function createToggle(text: string, order: number): (Frame, () -> ())
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, 0, 0, 46)
 	card.BackgroundColor3 = CONFIG.CARD_BG
-	card.BackgroundTransparency = 0 -- Четкие плашки кнопок ПОВЕРХ фона
+	card.BackgroundTransparency = 0
 	card.BorderSizePixel = 0
 	card.LayoutOrder = order
 	card.ZIndex = 2
@@ -230,7 +228,7 @@ local function createToggle(text: string, order: number): (Frame, () -> ())
 	clickBtn.Size = UDim2.fromScale(1, 1)
 	clickBtn.BackgroundTransparency = 1
 	clickBtn.Text = ""
-	clickBtn.ZIndex = 5 -- Кликовый слой поверх всего
+	clickBtn.ZIndex = 5
 	clickBtn.Parent = card
 
 	local active = false
@@ -357,6 +355,7 @@ end
 -- CORE LOGIC
 --==================================================
 
+-- Поиск nearest головы для AimBot
 local function getTargetHead(cam: Camera): BasePart?
 	local char = localPlayer.Character
 	if not char then return nil end
@@ -395,7 +394,7 @@ RunService.RenderStepped:Connect(function()
 	local showEsp = getEspState()
 	local aimOn = getAimState()
 
-	-- 1. AIM BOT LOGIC
+	-- 1. AIM BOT LOGIC -> НАВОДИТСЯ НА ГОЛОВУ (HEAD)
 	if aimOn then
 		local targetHead = getTargetHead(camera)
 		if targetHead then
@@ -405,7 +404,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 
-	-- 2. COMBINED ESP LOGIC
+	-- 2. ESP LOGIC -> TRACER ИДЕТ В ТОРС (HUMANOIDROOTPART)
 	local viewport = camera.ViewportSize
 	if viewport.X <= 0 or viewport.Y <= 0 then return end
 	local screenCenter = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
@@ -429,9 +428,10 @@ RunService.RenderStepped:Connect(function()
 			continue
 		end
 
+		-- Точный расчет верх/низ модели для 2D бокса
 		local rootPos = root.Position
-		local topWorld = rootPos + Vector3.new(0, 3.2, 0)
-		local bottomWorld = rootPos - Vector3.new(0, 3.2, 0)
+		local topWorld = rootPos + Vector3.new(0, 2.8, 0)
+		local bottomWorld = rootPos - Vector3.new(0, 3.0, 0)
 
 		local topScreen, topOnScreen = camera:WorldToScreenPoint(topWorld)
 		local bottomScreen, bottomOnScreen = camera:WorldToScreenPoint(bottomWorld)
@@ -442,17 +442,25 @@ RunService.RenderStepped:Connect(function()
 		end
 
 		local boxHeight = math.abs(bottomScreen.Y - topScreen.Y)
-		local boxWidth = boxHeight * 0.65
+		local boxWidth = boxHeight * 0.55
 
-		local boxCenter2D = Vector2.new(topScreen.X, topScreen.Y + (boxHeight / 2))
+		-- 2D точка торса (HumanoidRootPart)
+		local rootScreenPos, rootOnScreen = camera:WorldToScreenPoint(rootPos)
 
-		-- 1. Отрисовка Box
+		if not rootOnScreen then
+			hideElements(player)
+			continue
+		end
+
+		local torsoPos2D = Vector2.new(rootScreenPos.X, rootScreenPos.Y)
+
+		-- Отрисовка ESP Box
 		elems.Box.Size = UDim2.fromOffset(boxWidth, boxHeight)
-		elems.Box.Position = UDim2.fromOffset(boxCenter2D.X - (boxWidth / 2), topScreen.Y)
+		elems.Box.Position = UDim2.fromOffset(torsoPos2D.X - (boxWidth / 2), topScreen.Y)
 		elems.Box.Visible = true
 
-		-- 2. Отрисовка Tracer
-		local dir = boxCenter2D - screenCenter
+		-- Отрисовка Tracer строго В ТОРС (HumanoidRootPart)
+		local dir = torsoPos2D - screenCenter
 		local dist = dir.Magnitude
 
 		elems.Tracer.Position = UDim2.fromOffset(screenCenter.X, screenCenter.Y)
